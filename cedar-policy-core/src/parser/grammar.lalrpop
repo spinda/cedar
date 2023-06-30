@@ -1,12 +1,15 @@
 use std::str::FromStr;
-use crate::parser::*;
-use crate::parser::node::ASTNode as Node;
+
 use lalrpop_util::{ParseError, ErrorRecovery};
 
-grammar<'err>(errors: &'err mut Vec<ErrorRecovery<usize, Token<'input>, String>>);
+use crate::parser::*;
+use crate::parser::err::{RawErrorRecovery, RawUserError};
+use crate::parser::node::ASTNode as Node;
+
+grammar<'err>(errors: &'err mut Vec<RawErrorRecovery<'input>>);
 
 extern {
-    type Error = String;
+    type Error = RawUserError;
 }
 
 // New tokens should be reflected in the `FRIENDLY_TOKEN_NAMES` map in err.rs.
@@ -345,10 +348,10 @@ Literal: Node<Option<cst::Literal>> = {
         => Node::new(Some(cst::Literal::True),l,r),
     <l:@L> FALSE <r:@R>
         => Node::new(Some(cst::Literal::False),l,r),
-    <l:@L> <n:NUMBER> <r:@R> =>? match u64::from_str(n) {
+    <l:@L> <n:WithSourceInfo<NUMBER>> <r:@R> =>? match u64::from_str(n.value) {
         Ok(n) => Ok(Node::new(Some(cst::Literal::Num(n)),l,r)),
         Err(e) => Err(ParseError::User {
-            error: format!("Integer parse fail: {e}"),
+            error: WithSourceInfo::new(n.info, format!("integer parse error: {e}")),
         }),
     },
     <l:@L> <s:Str> <r:@R>
@@ -358,3 +361,7 @@ Str: Node<Option<cst::Str>> = {
     <l:@L> <s:STRINGLIT> <r:@R>
         => Node::new(Some(cst::Str::String(s[1..(s.len() - 1)].into())),l,r),
 }
+
+WithSourceInfo<Rule>: WithSourceInfo<Rule> =
+    <range_start: @L> <value: Rule> <range_end: @R> =>
+        WithSourceInfo::new(range_start..range_end, value);

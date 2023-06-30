@@ -14,22 +14,184 @@
  * limitations under the License.
  */
 
+use std::cmp::Ordering;
+use std::error::Error;
+use std::fmt::{self, Debug, Display};
+use std::ops::Range;
+
 use serde::{Deserialize, Serialize};
 
 /// Describes where in policy source code a node in the CST or expression AST
 /// occurs.
-#[derive(Serialize, Deserialize, Hash, Debug, Clone, PartialEq, Eq)]
-pub struct SourceInfo(pub std::ops::Range<usize>);
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct SourceInfo(pub Range<usize>);
 
 impl SourceInfo {
-    /// Get the start of range.
-    pub fn range_start(&self) -> usize {
+    /// Construct a new [`SourceInfo`] from a start offset and a length, in
+    /// bytes.
+    pub const fn new(start: usize, len: usize) -> Self {
+        SourceInfo(start..(start + len))
+    }
+
+    /// Construct a new zero-length [`SourceInfo`] pointing to a specific
+    /// offset.
+    pub const fn from_offset(offset: usize) -> Self {
+        SourceInfo(offset..offset)
+    }
+
+    /// Get the start of range, in bytes.
+    pub const fn range_start(&self) -> usize {
         self.0.start
     }
 
-    /// Get the end of range.
-    pub fn range_end(&self) -> usize {
+    /// Get the end of range, in bytes.
+    pub const fn range_end(&self) -> usize {
         self.0.end
+    }
+
+    /// Get the length of the source range, in bytes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the end of the range is before the start.
+    pub const fn len(&self) -> usize {
+        assert!(self.range_start() <= self.range_end());
+        self.range_end() - self.range_start()
+    }
+
+    /// Tests whether this [`SourceInfo`] range is a zero-length offset.
+    pub const fn is_offset(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl Display for SourceInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.is_offset() {
+            write!(f, "{}", self.range_start())
+        } else {
+            write!(f, "[{}, {})", self.range_start(), self.range_end())
+        }
+    }
+}
+
+impl Ord for SourceInfo {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.range_start()
+            .cmp(&other.range_start())
+            .then_with(|| self.len().cmp(&other.len()))
+    }
+}
+
+impl PartialOrd for SourceInfo {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl From<usize> for SourceInfo {
+    fn from(offset: usize) -> Self {
+        SourceInfo::from_offset(offset)
+    }
+}
+
+impl From<Range<usize>> for SourceInfo {
+    fn from(range: Range<usize>) -> Self {
+        SourceInfo(range)
+    }
+}
+
+impl From<SourceInfo> for Range<usize> {
+    fn from(info: SourceInfo) -> Self {
+        info.0
+    }
+}
+
+/// A value annotated with a source range from parsed input.
+#[derive(Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct WithSourceInfo<T> {
+    /// The value.
+    pub value: T,
+    /// The source range tied to the value.
+    pub info: SourceInfo,
+}
+
+impl<T> WithSourceInfo<T> {
+    /// Annotate a value with a corresponding source range from parsed input.
+    pub fn new(info: impl Into<SourceInfo>, value: T) -> Self {
+        Self {
+            info: info.into(),
+            value,
+        }
+    }
+
+    /// Transform the inner value while retaining the attached source range.
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> WithSourceInfo<U> {
+        WithSourceInfo {
+            info: self.info,
+            value: f(self.value),
+        }
+    }
+
+    /// Converts from `&WithSourceInfo<T>` to `WithSourceInfo<&T>`.
+    pub fn as_ref(&self) -> WithSourceInfo<&T> {
+        WithSourceInfo {
+            info: self.info.clone(),
+            value: &self.value,
+        }
+    }
+
+    /// Converts from `&mut WithSourceInfo<T>` to `WithSourceInfo<&mut T>`.
+    pub fn as_mut(&mut self) -> WithSourceInfo<&mut T> {
+        WithSourceInfo {
+            info: self.info.clone(),
+            value: &mut self.value,
+        }
+    }
+}
+
+impl<T: Clone> WithSourceInfo<&T> {
+    /// Converts a `WithSourceInfo<&T>` to a `WithSourceInfo<T>` by cloning the
+    /// inner value.
+    pub fn cloned(self) -> WithSourceInfo<T> {
+        self.map(|value| value.clone())
+    }
+}
+
+impl<T: Copy> WithSourceInfo<&T> {
+    /// Converts a `WithSourceInfo<&T>` to a `WithSourceInfo<T>` by copying the
+    /// inner value.
+    pub fn copied(self) -> WithSourceInfo<T> {
+        self.map(|value| *value)
+    }
+}
+
+impl<T: Debug> Debug for WithSourceInfo<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Debug::fmt(&self.value, f)?;
+        write!(f, " @ {}", self.info)
+    }
+}
+
+impl<T: Display> Display for WithSourceInfo<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.value, f)
+    }
+}
+
+impl<T: Error> Error for WithSourceInfo<T> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.value.source()
+    }
+
+    fn description(&self) -> &str {
+        #[allow(deprecated)]
+        self.value.description()
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        #[allow(deprecated)]
+        self.value.cause()
     }
 }
 
