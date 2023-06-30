@@ -21,7 +21,12 @@ use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
 use super::PrincipalOrResource;
-use crate::{parser::err::ParseError, FromNormalizedStr};
+use crate::FromNormalizedStr;
+
+#[cfg(not(feature = "unstable-miette"))]
+type ParseErrors = Vec<crate::parser::err::ParseError>;
+#[cfg(feature = "unstable-miette")]
+use crate::parser::err::ParseErrors;
 
 /// Arc::unwrap_or_clone() isn't stabilized as of this writing, but this is its implementation
 //
@@ -61,7 +66,7 @@ impl Name {
 
     /// Create a `Name` with no path (no namespaces).
     /// Returns an error if `s` is not a valid identifier.
-    pub fn parse_unqualified_name(s: &str) -> Result<Self, Vec<ParseError>> {
+    pub fn parse_unqualified_name(s: &str) -> Result<Self, ParseErrors> {
         Ok(Self {
             id: s.parse()?,
             path: Arc::new(vec![]),
@@ -109,9 +114,9 @@ impl std::fmt::Display for Name {
 
 // allow `.parse()` on a string to make a `Name`
 impl std::str::FromStr for Name {
-    type Err = Vec<ParseError>;
+    type Err = ParseErrors;
 
-    fn from_str(s: &str) -> Result<Self, Vec<ParseError>> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         crate::parser::parse_name(s)
     }
 }
@@ -247,9 +252,9 @@ impl std::fmt::Display for Id {
 
 // allow `.parse()` on a string to make an `Id`
 impl std::str::FromStr for Id {
-    type Err = Vec<ParseError>;
+    type Err = ParseErrors;
 
-    fn from_str(s: &str) -> Result<Self, Vec<ParseError>> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         crate::parser::parse_ident(s)
     }
 }

@@ -17,25 +17,30 @@
 #![forbid(unsafe_code)]
 
 use clap::Parser;
+#[cfg(feature = "unstable-err-fmt-arg")]
 use miette::ErrorHook;
 
+#[cfg(feature = "unstable-err-fmt-arg")]
+use cedar_policy_cli::ErrorFormat;
 use cedar_policy_cli::{
-    authorize, check_parse, evaluate, format_policies, link, validate, CedarExitCode, Cli,
-    Commands, ErrorFormat,
+    authorize, check_parse, evaluate, format_policies, link, validate, CedarExitCode, Cli, Commands,
 };
 
 fn main() -> CedarExitCode {
     let cli = Cli::parse();
 
-    let err_hook: Option<ErrorHook> = match cli.err_fmt {
-        ErrorFormat::Human => None, // This is the default.
-        ErrorFormat::Plain => Some(Box::new(|_| {
-            Box::new(miette::NarratableReportHandler::new())
-        })),
-        ErrorFormat::Json => Some(Box::new(|_| Box::new(miette::JSONReportHandler::new()))),
-    };
-    if let Some(err_hook) = err_hook {
-        miette::set_hook(err_hook).expect("failed to install error-reporting hook");
+    #[cfg(feature = "unstable-err-fmt-arg")]
+    {
+        let err_hook: Option<ErrorHook> = match cli.err_fmt {
+            ErrorFormat::Human => None, // This is the default.
+            ErrorFormat::Plain => Some(Box::new(|_| {
+                Box::new(miette::NarratableReportHandler::new())
+            })),
+            ErrorFormat::Json => Some(Box::new(|_| Box::new(miette::JSONReportHandler::new()))),
+        };
+        if let Some(err_hook) = err_hook {
+            miette::set_hook(err_hook).expect("failed to install error-reporting hook");
+        }
     }
 
     match cli.command {

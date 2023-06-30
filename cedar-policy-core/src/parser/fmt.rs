@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-use std::fmt::{self, Write};
+use std::fmt;
+#[cfg(feature = "unstable-miette")]
+use std::fmt::Write;
 
 use super::cst::*;
 use super::node::ASTNode;
@@ -428,7 +430,8 @@ impl std::fmt::Display for Slot {
     }
 }
 
-pub fn join_with_conjunction<T, W: Write>(
+#[cfg(feature = "unstable-miette")]
+pub(crate) fn join_with_conjunction<T, W: Write>(
     f: &mut W,
     conjunction: &str,
     items: impl IntoIterator<Item = T>,

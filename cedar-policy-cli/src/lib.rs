@@ -19,12 +19,15 @@
 // omitted.
 #![allow(clippy::needless_return)]
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+#[cfg(feature = "unstable-err-fmt-arg")]
+use clap::ValueEnum;
+use clap::{Args, Parser, Subcommand};
 use miette::{miette, IntoDiagnostic, NamedSource, Report, Result, WrapErr};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "unstable-err-fmt-arg")]
+use std::fmt::{self, Display};
 use std::{
     collections::HashMap,
-    fmt::{self, Display},
     fs::OpenOptions,
     path::Path,
     process::{ExitCode, Termination},
@@ -50,9 +53,11 @@ pub struct Cli {
         default_value_t,
         value_enum
     )]
+    #[cfg(feature = "unstable-err-fmt-arg")]
     pub err_fmt: ErrorFormat,
 }
 
+#[cfg(feature = "unstable-err-fmt-arg")]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
 pub enum ErrorFormat {
     /// Human-readable error messages with terminal graphics and inline code
@@ -66,6 +71,7 @@ pub enum ErrorFormat {
     Json,
 }
 
+#[cfg(feature = "unstable-err-fmt-arg")]
 impl Display for ErrorFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

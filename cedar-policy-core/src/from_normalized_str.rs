@@ -2,10 +2,15 @@ use crate::parser::err::ParseError;
 use std::fmt::Display;
 use std::str::FromStr;
 
+#[cfg(not(feature = "unstable-miette"))]
+type ParseErrors = Vec<ParseError>;
+#[cfg(feature = "unstable-miette")]
+use crate::parser::err::ParseErrors;
+
 /// Trait for parsing "normalized" strings only, throwing an error if a
 /// non-normalized string is encountered. See docs on the
 /// [`from_normalized_str`] trait function.
-pub trait FromNormalizedStr: FromStr<Err = Vec<ParseError>> + Display {
+pub trait FromNormalizedStr: FromStr<Err = ParseErrors> + Display {
     /// Create a `Self` by parsing a string, which is required to be normalized.
     /// That is, the input is required to roundtrip with the `Display` impl on `Self`:
     /// `Self::from_normalized_str(x).to_string() == x` must hold.
@@ -18,7 +23,7 @@ pub trait FromNormalizedStr: FromStr<Err = Vec<ParseError>> + Display {
     ///
     /// For the version that accepts whitespace and Cedar comments, use the
     /// actual `FromStr` implementations.
-    fn from_normalized_str(s: &str) -> Result<Self, Vec<ParseError>> {
+    fn from_normalized_str(s: &str) -> Result<Self, ParseErrors> {
         let parsed = Self::from_str(s)?;
         let normalized = parsed.to_string();
         if normalized == s {
@@ -28,7 +33,7 @@ pub trait FromNormalizedStr: FromStr<Err = Vec<ParseError>> + Display {
             Err(vec![ParseError::ToAST(format!(
                 "{} needs to be normalized (e.g., whitespace removed): {s} The normalized form is {normalized}",
                 Self::describe_self()
-            ))])
+            ))].into())
         }
     }
 

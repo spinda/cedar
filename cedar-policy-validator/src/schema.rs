@@ -26,7 +26,6 @@ use std::sync::Arc;
 use cedar_policy_core::{
     ast::{Eid, Entity, EntityType, EntityUID, Id, Name, RestrictedExpr},
     entities::{Entities, JSONValue, TCComputation},
-    parser::err::ParseError,
     transitive_closure::{compute_tc, TCNode},
     FromNormalizedStr,
 };
@@ -44,6 +43,11 @@ use crate::{
 
 use super::err::*;
 use super::NamespaceDefinition;
+
+#[cfg(not(feature = "unstable-miette"))]
+type ParseErrors = Vec<cedar_policy_core::parser::err::ParseError>;
+#[cfg(feature = "unstable-miette")]
+use cedar_policy_core::parser::err::ParseErrors;
 
 /// The current schema format specification does not include multiple action entity
 /// types. All action entities are required to use a single `Action` entity
@@ -577,7 +581,7 @@ impl ValidatorNamespaceDef {
     pub(crate) fn parse_possibly_qualified_name_with_default_namespace(
         name_str: &SmolStr,
         default_namespace: Option<&Name>,
-    ) -> std::result::Result<Name, Vec<ParseError>> {
+    ) -> std::result::Result<Name, ParseErrors> {
         let name = Name::from_normalized_str(name_str)?;
 
         let qualified_name = if name.namespace_components().next().is_some() {
@@ -603,7 +607,7 @@ impl ValidatorNamespaceDef {
     fn parse_unqualified_name_with_namespace(
         type_name: impl AsRef<str>,
         namespace: Option<Name>,
-    ) -> std::result::Result<Name, Vec<ParseError>> {
+    ) -> std::result::Result<Name, ParseErrors> {
         let type_name = Id::from_normalized_str(type_name.as_ref())?;
         match namespace {
             Some(namespace) => Ok(Name::type_in_namespace(type_name, namespace)),

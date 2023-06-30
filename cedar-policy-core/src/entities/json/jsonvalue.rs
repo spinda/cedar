@@ -27,6 +27,11 @@ use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 use std::collections::{HashMap, HashSet};
 
+#[cfg(not(feature = "unstable-miette"))]
+type ParseErrors = Vec<crate::parser::err::ParseError>;
+#[cfg(feature = "unstable-miette")]
+use crate::parser::err::ParseErrors;
+
 /// The canonical JSON representation of a Cedar value.
 /// Many Cedar values have a natural one-to-one mapping to and from JSON values.
 /// Cedar values of some types, like entity references or extension values,
@@ -125,7 +130,7 @@ impl From<&EntityUID> for TypeAndId {
 }
 
 impl TryFrom<TypeAndId> for EntityUID {
-    type Error = Vec<crate::parser::err::ParseError>;
+    type Error = ParseErrors;
 
     fn try_from(e: TypeAndId) -> Result<EntityUID, Self::Error> {
         Ok(EntityUID::from_components(
@@ -296,7 +301,7 @@ impl FnAndArg {
                         "in __extn escape, {:?} is not a valid function name",
                         &self.ext_fn,
                     ),
-                    errs: parser::err::ParseErrors(errs),
+                    errs: errs.into(),
                 })
             })?,
             vec![JSONValue::into_expr(*self.arg)?],

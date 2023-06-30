@@ -38,13 +38,18 @@ use std::collections::HashMap;
 use crate::ast;
 use crate::est;
 
+#[cfg(not(feature = "unstable-miette"))]
+type ParseErrors = Vec<err::ParseError>;
+#[cfg(feature = "unstable-miette")]
+use crate::parser::err::ParseErrors;
+
 /// simple main function for parsing policies
 /// generates numbered ids
-pub fn parse_policyset(text: &str) -> Result<ast::PolicySet, Vec<err::ParseError>> {
+pub fn parse_policyset(text: &str) -> Result<ast::PolicySet, ParseErrors> {
     let mut errs = Vec::new();
     text_to_cst::parse_policies(text)?
         .to_policyset(&mut errs)
-        .ok_or(errs)
+        .ok_or(errs.into())
 }
 
 /// Like `parse_policyset()`, but also returns the (lossless) original text of
@@ -103,10 +108,7 @@ pub fn parse_policyset_to_ests_and_pset(
 /// Simple main function for parsing a policy template.
 /// If `id` is Some, then the resulting template will have that `id`.
 /// If the `id` is None, the parser will use "policy0".
-pub fn parse_policy_template(
-    id: Option<String>,
-    text: &str,
-) -> Result<ast::Template, Vec<err::ParseError>> {
+pub fn parse_policy_template(id: Option<String>, text: &str) -> Result<ast::Template, ParseErrors> {
     let mut errs = Vec::new();
     let id = match id {
         Some(id) => ast::PolicyID::from_string(id),
@@ -114,9 +116,11 @@ pub fn parse_policy_template(
     };
     let r = text_to_cst::parse_policy(text)?.to_policy_template(id, &mut errs);
     if errs.is_empty() {
-        r.ok_or(errs).map(ast::Template::from)
+        // FIXME: If `r` is `None`, this returns an empty collection of
+        // `ParseError`s.
+        r.ok_or(errs.into()).map(ast::Template::from)
     } else {
-        Err(errs)
+        Err(errs.into())
     }
 }
 
@@ -146,10 +150,7 @@ pub fn parse_policy_template_to_est_and_ast(
 /// simple main function for parsing a policy.
 /// If `id` is Some, then the resulting policy will have that `id`.
 /// If the `id` is None, the parser will use "policy0".
-pub fn parse_policy(
-    id: Option<String>,
-    text: &str,
-) -> Result<ast::StaticPolicy, Vec<err::ParseError>> {
+pub fn parse_policy(id: Option<String>, text: &str) -> Result<ast::StaticPolicy, ParseErrors> {
     let mut errs = Vec::new();
     let id = match id {
         Some(id) => ast::PolicyID::from_string(id),
@@ -158,9 +159,11 @@ pub fn parse_policy(
     let r = text_to_cst::parse_policy(text)?.to_policy(id, &mut errs);
 
     if errs.is_empty() {
-        r.ok_or(errs)
+        // FIXME: If `r` is `None`, this returns an empty collection of
+        // `ParseError`s.
+        r.ok_or(errs.into())
     } else {
-        Err(errs)
+        Err(errs.into())
     }
 }
 
@@ -202,49 +205,49 @@ pub fn parse_policy_or_template_to_est(text: &str) -> Result<est::Policy, err::P
 ///
 /// Private to this crate. Users outside Core should use `Expr`'s `FromStr` impl
 /// or its constructors
-pub(crate) fn parse_expr(ptext: &str) -> Result<ast::Expr, Vec<err::ParseError>> {
+pub(crate) fn parse_expr(ptext: &str) -> Result<ast::Expr, ParseErrors> {
     let mut errs = Vec::new();
     text_to_cst::parse_expr(ptext)?
         .to_expr(&mut errs)
-        .ok_or(errs)
+        .ok_or(errs.into())
 }
 
 /// parse a RestrictedExpr
 ///
 /// Private to this crate. Users outside Core should use `RestrictedExpr`'s
 /// `FromStr` impl or its constructors
-pub(crate) fn parse_restrictedexpr(
-    ptext: &str,
-) -> Result<ast::RestrictedExpr, Vec<err::ParseError>> {
+pub(crate) fn parse_restrictedexpr(ptext: &str) -> Result<ast::RestrictedExpr, ParseErrors> {
     parse_expr(ptext)
-        .and_then(|expr| ast::RestrictedExpr::new(expr).map_err(|err| vec![err.into()]))
+        .and_then(|expr| ast::RestrictedExpr::new(expr).map_err(|err| vec![err.into()].into()))
 }
 
 /// parse an EntityUID
 ///
 /// Private to this crate. Users outside Core should use `EntityUID`'s `FromStr`
 /// impl or its constructors
-pub(crate) fn parse_euid(euid: &str) -> Result<ast::EntityUID, Vec<err::ParseError>> {
+pub(crate) fn parse_euid(euid: &str) -> Result<ast::EntityUID, ParseErrors> {
     let mut errs = Vec::new();
-    text_to_cst::parse_ref(euid)?.to_ref(&mut errs).ok_or(errs)
+    text_to_cst::parse_ref(euid)?
+        .to_ref(&mut errs)
+        .ok_or(errs.into())
 }
 
 /// parse a Name
 ///
 /// Private to this crate. Users outside Core should use `Name`'s `FromStr` impl
 /// or its constructors
-pub(crate) fn parse_name(name: &str) -> Result<ast::Name, Vec<err::ParseError>> {
+pub(crate) fn parse_name(name: &str) -> Result<ast::Name, ParseErrors> {
     let mut errs = Vec::new();
     text_to_cst::parse_name(name)?
         .to_name(&mut errs)
-        .ok_or(errs)
+        .ok_or(errs.into())
 }
 
 /// parse a string into an ast::Literal (does not support expressions)
 ///
 /// Private to this crate. Users outside Core should use `Literal`'s `FromStr` impl
 /// or its constructors
-pub(crate) fn parse_literal(val: &str) -> Result<ast::Literal, Vec<err::ParseError>> {
+pub(crate) fn parse_literal(val: &str) -> Result<ast::Literal, ParseErrors> {
     let mut errs = Vec::new();
     match text_to_cst::parse_primary(val)?
         .to_expr(&mut errs)
@@ -252,9 +255,7 @@ pub(crate) fn parse_literal(val: &str) -> Result<ast::Literal, Vec<err::ParseErr
         .into_expr_kind()
     {
         ast::ExprKind::Lit(v) => Ok(v),
-        _ => Err(vec![err::ParseError::ToAST(
-            "text is not a literal".to_string(),
-        )]),
+        _ => Err(vec![err::ParseError::ToAST("text is not a literal".to_string())].into()),
     }
 }
 
@@ -268,23 +269,23 @@ pub(crate) fn parse_literal(val: &str) -> Result<ast::Literal, Vec<err::ParseErr
 ///
 /// It does not return a string suitable for a pattern. Use the
 /// full expression parser for those.
-pub fn parse_internal_string(val: &str) -> Result<SmolStr, Vec<err::ParseError>> {
+pub fn parse_internal_string(val: &str) -> Result<SmolStr, ParseErrors> {
     let mut errs = Vec::new();
     // we need to add quotes for this to be a valid string literal
     text_to_cst::parse_primary(&format!(r#""{val}""#))?
         .to_string_literal(&mut errs)
-        .ok_or(errs)
+        .ok_or(errs.into())
 }
 
 /// parse an identifier
 ///
 /// Private to this crate. Users outside Core should use `Id`'s `FromStr` impl
-/// or its constructors
-pub(crate) fn parse_ident(id: &str) -> Result<ast::Id, Vec<err::ParseError>> {
+/// or its constructorsVec<err::Error>Vec<err::Error>Vec<err::Error>
+pub(crate) fn parse_ident(id: &str) -> Result<ast::Id, ParseErrors> {
     let mut errs = Vec::new();
     text_to_cst::parse_ident(id)?
         .to_valid_ident(&mut errs)
-        .ok_or(errs)
+        .ok_or(errs.into())
 }
 
 /// parse into a `Request`
@@ -293,7 +294,7 @@ pub fn parse_request(
     action: impl AsRef<str>,         // should be a "Type::EID" string
     resource: impl AsRef<str>,       // should be a "Type::EID" string
     context_json: serde_json::Value, // JSON object mapping Strings to ast::RestrictedExpr
-) -> Result<ast::Request, Vec<err::ParseError>> {
+) -> Result<ast::Request, ParseErrors> {
     let mut errs = vec![];
     // Parse principal, action, resource
     let mut parse_par = |s, name| {
@@ -330,7 +331,7 @@ pub fn parse_request(
             resource: ast::EntityUIDEntry::concrete(r),
             context,
         }),
-        _ => Err(errs),
+        _ => Err(errs.into()),
     }
 }
 

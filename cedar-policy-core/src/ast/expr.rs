@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-use crate::{
-    ast::*,
-    extensions::Extensions,
-    parser::{err::ParseError, SourceInfo},
-};
+use crate::{ast::*, extensions::Extensions, parser::SourceInfo};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
@@ -30,6 +26,11 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
+
+#[cfg(not(feature = "unstable-miette"))]
+type ParseErrors = Vec<crate::parser::err::ParseError>;
+#[cfg(feature = "unstable-miette")]
+use crate::parser::err::ParseErrors;
 
 /// Internal AST for expressions used by the policy evaluator.
 /// This structure is a wrapper around an `ExprKind`, which is the expression
@@ -767,9 +768,9 @@ fn maybe_with_parens(expr: &Expr) -> String {
 }
 
 impl std::str::FromStr for Expr {
-    type Err = Vec<ParseError>;
+    type Err = ParseErrors;
 
-    fn from_str(s: &str) -> Result<Expr, Vec<ParseError>> {
+    fn from_str(s: &str) -> Result<Expr, Self::Err> {
         crate::parser::parse_expr(s)
     }
 }

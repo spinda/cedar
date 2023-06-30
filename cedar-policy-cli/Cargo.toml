@@ -12,14 +12,30 @@ repository = "https://github.com/cedar-policy/cedar"
 
 [dependencies]
 cedar-policy = { version = "2.3.0", path = "../cedar-policy" }
-cedar-policy-formatter = { version = "2.3.0", path = "../cedar-policy-formatter" }
-clap = { version = "4", features = ["derive", "env"] }
+clap = { version = "4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 miette = { version = "5.9.0", features = ["fancy"] }
 
+[dependencies.cedar-policy-core]
+version = "=2.3.0"
+path = "../cedar-policy-core"
+features = ["unstable-miette", "unstable-to-cst-err"]
+
+[dependencies.cedar-policy-formatter]
+version = "=2.3.0"
+path = "../cedar-policy-formatter"
+features = ["unstable-miette"]
+
+[dependencies.cedar-policy-validator]
+version = "=2.3.0"
+path = "../cedar-policy-validator"
+features = ["unstable-miette"]
+
 [features]
-default = []
+# `unstable-*` features opt into potentially-breaking API changes that may
+# become stable in future releases.
+unstable-err-fmt-arg = ["clap/env"]
 
 [dev-dependencies]
 assert_cmd = "2.0"

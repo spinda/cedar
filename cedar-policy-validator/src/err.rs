@@ -24,6 +24,11 @@ use cedar_policy_core::{
 use itertools::Itertools;
 use thiserror::Error;
 
+#[cfg(not(feature = "unstable-miette"))]
+type ParseErrors = Vec<ParseError>;
+#[cfg(feature = "unstable-miette")]
+use cedar_policy_core::parser::err::ParseErrors;
+
 #[derive(Debug, Error)]
 pub enum SchemaError {
     /// Errors loading and parsing schema files
@@ -69,17 +74,17 @@ pub enum SchemaError {
     CycleInActionHierarchy,
     /// Parse errors occurring while parsing an entity type.
     #[error("Parse error in entity type: {}", Self::format_parse_errs(.0))]
-    EntityTypeParseError(Vec<ParseError>),
+    EntityTypeParseError(ParseErrors),
     /// Parse errors occurring while parsing a namespace identifier.
     #[error("Parse error in namespace identifier: {}", Self::format_parse_errs(.0))]
-    NamespaceParseError(Vec<ParseError>),
+    NamespaceParseError(ParseErrors),
     /// Parse errors occurring while parsing an extension type.
     #[error("Parse error in extension type: {}", Self::format_parse_errs(.0))]
-    ExtensionTypeParseError(Vec<ParseError>),
+    ExtensionTypeParseError(ParseErrors),
     /// Parse errors occurring while parsing the name of one of reusable
     /// declared types.
     #[error("Parse error in common type identifier: {}", Self::format_parse_errs(.0))]
-    CommonTypeParseError(Vec<ParseError>),
+    CommonTypeParseError(ParseErrors),
     /// The schema file included an entity type `Action` in the entity type
     /// list. The `Action` entity type is always implicitly declared, and it
     /// cannot currently have attributes or be in any groups, so there is no

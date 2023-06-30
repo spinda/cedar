@@ -20,6 +20,11 @@ use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 use std::sync::Arc;
 
+#[cfg(not(feature = "unstable-miette"))]
+type ParseErrors = Vec<crate::parser::err::ParseError>;
+#[cfg(feature = "unstable-miette")]
+use crate::parser::err::ParseErrors;
+
 /// First-class values which may appear as literals in `Expr::Lit`.
 ///
 /// Note that the auto-derived `PartialEq` and `Eq` are total equality -- using
@@ -71,7 +76,7 @@ impl std::fmt::Display for Literal {
 }
 
 impl std::str::FromStr for Literal {
-    type Err = Vec<parser::err::ParseError>;
+    type Err = ParseErrors;
 
     fn from_str(s: &str) -> Result<Literal, Self::Err> {
         parser::parse_literal(s)

@@ -599,7 +599,7 @@ impl TryFrom<Expr> for ast::Expr {
                         let fn_name = fn_name.parse().map_err(|errs|
                             JsonDeserializationError::ExtnParseError(ParseError::WithContext {
                                 context: format!("expected valid operator or extension function name; got {fn_name}"),
-                                errs: ParseErrors(errs),
+                                errs,
                             })
                         )?;
                         Ok(ast::Expr::call_extension_fn(
@@ -1090,7 +1090,7 @@ fn interpret_primary(p: cst::Primary) -> Result<Either<ast::Name, Expr>, ParseEr
                 }
                 (&[], Some(cst::Ident::Context)) => Ok(Either::Right(Expr::var(ast::Var::Context))),
                 (path, Some(cst::Ident::Ident(id))) => Ok(Either::Left(ast::Name::new(
-                    id.parse().map_err(ParseErrors)?,
+                    id.parse()?,
                     path.iter()
                         .map(|ASTNode { node, .. }| {
                             node.as_ref()
@@ -1099,7 +1099,7 @@ fn interpret_primary(p: cst::Primary) -> Result<Either<ast::Name, Expr>, ParseEr
                                         "node should not be empty".to_string(),
                                     )])
                                 })
-                                .and_then(|id| id.to_string().parse().map_err(ParseErrors))
+                                .and_then(|id| id.to_string().parse().map_err(Into::into))
                         })
                         .collect::<Result<Vec<ast::Id>, _>>()?,
                 ))),

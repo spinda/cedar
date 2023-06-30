@@ -23,6 +23,11 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use thiserror::Error;
 
+#[cfg(not(feature = "unstable-miette"))]
+type ParseErrors = Vec<crate::parser::err::ParseError>;
+#[cfg(feature = "unstable-miette")]
+use crate::parser::err::ParseErrors;
+
 /// A few places in Core use these "restricted expressions" (for lack of a
 /// better term) which are in some sense the minimal subset of `Expr` required
 /// to express all possible `Value`s.
@@ -118,7 +123,7 @@ impl RestrictedExpr {
 }
 
 impl std::str::FromStr for RestrictedExpr {
-    type Err = Vec<parser::err::ParseError>;
+    type Err = ParseErrors;
 
     fn from_str(s: &str) -> Result<RestrictedExpr, Self::Err> {
         parser::parse_restrictedexpr(s)

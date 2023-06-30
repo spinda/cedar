@@ -31,3 +31,7 @@ decimal = ["cedar-policy-core/decimal"]
 
 # Enables `Arbitrary` implementations for several types in this crate
 arbitrary = ["dep:arbitrary"]
+
+# `unstable-*` features opt into potentially-breaking API changes that may
+# become the default in future releases.
+unstable-miette = ["cedar-policy-core/unstable-miette"]
